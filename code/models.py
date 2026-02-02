@@ -32,7 +32,7 @@ class HyperbolicNetwork(torch.nn.Module):
         if head is None:
             self.head = HyperbolicRegressionLayer(layer_size_list[-1])
         else:
-            self.head = head
+            self.head = HyperbolicRegressionLayer(layer_size_list[-1], head)
 
     def forward(self, x):
         return self.head(self.hidden(x))
@@ -50,6 +50,8 @@ class HyperbolicNetwork(torch.nn.Module):
         for h in self.hidden:
           repr = h(repr)
           yield torch.mean(m.fiber(repr).pow(2).sum(dim=-1))
+
+
 
 class PoincareNetwork(torch.nn.Module):
     def __init__(self, size, activation=torch.nn.Identity, layer_size_list=None, head=None):
@@ -136,9 +138,10 @@ class EuclideanNetwork(torch.nn.Module):
         if head is None:
             self.head=torch.nn.Linear(layer_size_list[-1], 1)
         else:
-            self.head = head
+            self.head = self.head=torch.nn.Linear(layer_size_list[-1], head)
       
     def forward(self, x):
+        
         return self.head(self.hidden(x))
 
 class HyperAlexNetCifar(torch.nn.Module):
