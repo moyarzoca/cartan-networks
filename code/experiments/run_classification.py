@@ -182,14 +182,13 @@ if __name__ == '__main__':
             output_dim = len(train_dataset.classes)
             nneurons = config['nneurons']
 
-            model = MODEL_DICT[config['mtype']](
-                input_dim,
-                ACTIVATION_DICT[config['activation']],
-                [nneurons] * config['nlayers'],
-                head=output_dim
-            ).to(device)
-
             for i in range(args.reps):
+                model = MODEL_DICT[config['mtype']](
+                    input_dim,
+                    ACTIVATION_DICT[config['activation']],
+                    [nneurons] * config['nlayers'],
+                    head=output_dim
+                ).to(device)
                 seed = np.random.randint(0, 10000)
                 train_model(model, config, train_loader, test_loader, path,
                             seed, epochs=args.epochs, save_model=args.save_model)
