@@ -159,9 +159,16 @@ if __name__ == '__main__':
     for config in configs:
 
         path = path_from_config(config)
-        if not path.exists():
 
-            print(f"Working on {path}")
+        path.mkdir(exist_ok=True, parents=True)
+        
+        existing_runs = len(list(path.glob("*_data.csv")))
+        missing_runs = max(0, args.reps - existing_runs)
+        
+        if missing_runs == 0:
+            print(f"--- {path} already has {existing_runs}/{args.reps} simulations ---")
+        else:
+            print(f"Working on {path}: {existing_runs}/{args.reps} found, running {missing_runs} more")
             path.mkdir(exist_ok=True, parents=True)
 
             TRANSFORM = torchvision.transforms.Compose([
@@ -192,5 +199,3 @@ if __name__ == '__main__':
                 seed = np.random.randint(0, 10000)
                 train_model(model, config, train_loader, test_loader, path,
                             seed, epochs=args.epochs, save_model=args.save_model)
-        else:
-            print(f"--- {path} already exists ---")
