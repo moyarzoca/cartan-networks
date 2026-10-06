@@ -328,7 +328,7 @@ class HyperbolicActivation(torch.nn.Module):
     
     def forward(self, x) -> torch.Tensor:
         m = HyperbolicAlgebra()
-        return torch.Tensor(torch.cat([m.cartan(x), self.activation(m.fiber(x))], dim = -1))
+        return torch.cat([m.cartan(x), self.activation(m.fiber(x))], dim=-1)
     
 class DmELU(torch.nn.Module):
     def __init__(self, alpha = 0.1):
