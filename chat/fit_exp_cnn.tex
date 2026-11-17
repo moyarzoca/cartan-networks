@@ -1,0 +1,162 @@
+\documentclass[10pt]{article}
+
+\usepackage[margin=0.5in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{xcolor}
+\usepackage[hidelinks]{hyperref}
+
+\title{What \texttt{fit\_exp\_cnn.py} does}
+\author{}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+The script gives a small numerical test of the Cartan, or group-valued,
+network layers in this repository.  The target is the scalar function
+\(f(x)=e^x\) on the interval \([0,1]\).  We first construct the training set
+\begin{equation}
+ x_i=\frac{i}{255},\quad i=0,\ldots,255,
+ \qquad y_i=e^{x_i},
+\end{equation}
+and then minimize the mean-square error between the network output and \(y_i\).
+The training step is full-batch: all 256 samples are used in every epoch.
+
+\section{Representation and network}
+
+The input is first embedded into the Cartan--fiber representation used by the
+code.  For a scalar input this is simply
+\begin{equation}
+ x \longmapsto (c,f)=(0,x),
+\end{equation}
+where \(c\) denotes the Cartan coordinate and \(f\) the fiber coordinate.
+The pair \((c,f)=(0,x)\) in Eq.~(2) is therefore the input to
+\texttt{HyperbolicLinear}(2,32) in Eq.~(3).  The first component is the Cartan
+coordinate and the second is the fiber coordinate; the layer maps this
+two-component representation to a 32-component Cartan--fiber representation.
+
+\noindent\fcolorbox{blue}{blue!5}{\parbox{0.94\linewidth}{\scriptsize
+\textbf{\textcolor{blue}{Definition.}} \texttt{HyperbolicLinear}(n,m), denoted
+\(\mathrm{HLinear}_{n\to m}\), maps an \(n\)-component representation (one
+Cartan and \(n-1\) fiber coordinates) to an \(m\)-component one.  Its ordinary
+fiber weight matrix has size
+\((m-1)\times(n-1)\).  \texttt{HyperbolicRegression}(n,1), denoted
+\(\mathrm{HReg}_{n\to1}\), maps \(\mathfrak{s}_n\) to one ordinary scalar.}}
+
+The model then applies
+\begin{equation}
+\begin{split}
+ &\texttt{HyperbolicLinear}(2,32),\quad
+   \texttt{HyperbolicActivation}(\mathrm{Id}),\\
+ &\texttt{HyperbolicLinear}(32,32),\quad
+   \texttt{HyperbolicActivation}(\mathrm{Id}),
+\end{split}
+\end{equation}
+\begin{equation}
+\scriptstyle
+\begin{aligned}
+ \mathfrak{s}_{2}
+ &\xrightarrow{\mathrm{HLinear}_{2\to32}} \mathfrak{s}_{32}
+  \xrightarrow{\mathrm{HAct}_{\mathrm{Id}}} \mathfrak{s}_{32}
+  \xrightarrow{\mathrm{HLinear}_{32\to32}} \mathfrak{s}_{32} \\
+ &\xrightarrow{\mathrm{HAct}_{\mathrm{Id}}} \mathfrak{s}_{32}
+  \xrightarrow{\mathrm{HReg}_{32\to1}} \mathbb{R}.
+\end{aligned}
+\end{equation}
+The two activation layers
+preserve the Cartan coordinate and apply the requested pointwise activation to
+the fiber.  Since the script passes \(\mathrm{Id}\), they introduce no
+additional pointwise nonlinearity; the algebra-aware linear maps and their
+group operations still determine the representation used by the regression
+layer.
+
+\noindent\fcolorbox{orange}{yellow!15}{\parbox{0.94\linewidth}{\scriptsize
+\textbf{Where is the exponential map?}  No explicit manifold exponential map
+is used in the forward pass: \(e^{c}\) in the regression is an ordinary
+scalar exponential.  Manifold retractions may be used by the optimizer.}}
+
+Schematically, a hyperbolic linear layer first forms a fiber linear map,
+\(f\mapsto Wf+b\), while retaining the Cartan coordinate.  It can then apply
+a group-valued bias and a fiber rotation.  The final regression maps the
+resulting representation to an ordinary scalar.  In the implementation its
+main terms have the form
+\begin{equation}
+ \mathcal R(c,f)=e^c W_Rf+(1+\|f\|^2)e^c\alpha+e^{-c}b_R,
+\end{equation}
+which is the scalar expression evaluated by \texttt{hregression} in the
+repository.  The notation distinguishes the regression weight \(W_R\) and
+bias \(b_R\) from the parameters of the preceding linear layers.
+
+The complete forward map, including the matrix and group operations, is
+conveniently written as
+
+\begin{equation}
+\begin{aligned}
+ z_0&=(c_0,f_0)=(0,x),
+ &z_1&=\mathcal L_1(z_0),\\
+ z_2&=\mathcal A(z_1),
+ &z_3&=\mathcal L_2(z_2),\\
+ z_4&=\mathcal A(z_3),
+ &\widehat f_\theta(x)&=\mathcal R(z_4),
+ \end{aligned}
+\qquad
+\begin{aligned}
+ \mathcal L_i(c,f)&=R_{\theta_i}\!\left(\beta_i*(c,W_i f+b_i)\right),\\
+ \beta*(c,g)&=(c+\beta_c,\,g+e^{-c}\beta_f),\\
+ \mathcal A(c,f)&=(c,f),\\
+ \mathcal R(c,f)&=e^c W_Rf+(1+\|f\|^2)e^c\alpha+e^{-c}b_R.
+ \end{aligned}
+\end{equation}
+
+Here \(W_1\in\mathbb R^{31\times1}\), \(W_2\in\mathbb
+R^{31\times31}\), and \(W_R\in\mathbb R^{1\times31}\); the maps
+\(R_{\theta_i}\) are the learned fiber rotations.
+
+The trainable network parameters are
+\begin{equation}
+ \Theta=\{W_1,b_1,\beta_1,\theta_1,
+          W_2,b_2,\beta_2,\theta_2,
+          W_R,\alpha,b_R\}.
+\end{equation}
+Here \(b_i\in\mathbb R^{31}\), while \(\beta_i\) and \(\theta_i\) each have
+32 components; \(\alpha,b_R\in\mathbb R\).  The embedding and the identity
+activations have no trainable parameters.  Counting these entries gives 1215
+trainable scalar parameters, before distinguishing their Euclidean and
+manifold constraints.
+
+The learned fiber rotation \(R_{\theta_i}\) is an isometry acting on the
+Cartan--fiber representation after the matrix map and group-valued bias.  Its
+parameter \(\theta_i\) mixes the Cartan and fiber coordinates without changing
+the representation dimension.  It is optimized, together with the other
+parameters, by \texttt{RiemannianAdam}; it is therefore a geometric layer
+operation, not an additional pointwise activation.
+
+\section{Optimization and check}
+
+The random seed is fixed with \texttt{torch.manual\_seed(0)}.  With the
+default settings, the network is trained for 3000 epochs with learning rate
+\(10^{-2}\).  The loss is
+\begin{equation}
+ \mathcal L=\frac{1}{256}\sum_{i=1}^{256}
+ \bigl(\widehat f(x_i)-e^{x_i}\bigr)^2.
+\end{equation}
+This is a deterministic approximation test rather than a generalization
+experiment: the reported error is evaluated on a separate, denser plotting
+grid, but no held-out dataset is used during optimization.
+
+The script uses \texttt{RiemannianAdam}, because some layer parameters live on
+manifolds rather than in an unconstrained Euclidean parameter space.  Each
+epoch computes the prediction, backpropagates the loss, and performs one
+manifold-aware optimizer step.
+
+After training, the model is evaluated on 500 points.  The script reports
+\begin{equation}
+ \max_{x\in\text{plot grid}}|\widehat f(x)-e^x|
+\end{equation}
+and plots the exact curve together with the learned approximation; with
+\texttt{--save exp\_fit.png}, it is written to a file.
+
+\end{document}
